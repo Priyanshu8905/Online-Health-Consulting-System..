@@ -1,0 +1,270 @@
+import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
+
+public class HealthConsultingDAO {
+
+    private static final String URL = "jdbc:mysql://localhost:3306/your_database";
+    private static final String USER = "root";
+    private static final String PASSWORD = "W7301@jqir#";
+
+    // Utility method to get database connection
+    private Connection getConnection() throws SQLException {
+        return DriverManager.getConnection(URL, USER, PASSWORD);
+    }
+
+    // --- UserDAO Methods ---
+
+    public boolean registerUser(User user) {
+        String sql = "INSERT INTO users (username, password, role, first_name, last_name, email, phone) VALUES (?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, user.getUsername());
+            pstmt.setString(2, user.getPassword());
+            pstmt.setString(3, user.getRole().toString());
+            pstmt.setString(4, user.getFirstName());
+            pstmt.setString(5, user.getLastName());
+            pstmt.setString(6, user.getEmail());
+            pstmt.setString(7, user.getPhone());
+
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public User getUserByUsername(String username) {
+        String sql = "SELECT * FROM users WHERE username = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, username);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return new User(
+                        rs.getInt("id"),
+                        rs.getString("username"),
+                        rs.getString("password"),
+                        User.Role.valueOf(rs.getString("role")),
+                        rs.getString("first_name"),
+                        rs.getString("last_name"),
+                        rs.getString("email"),
+                        rs.getString("phone")
+                );
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public boolean updateUserProfile(User user) {
+        String sql = "UPDATE users SET first_name = ?, last_name = ?, email = ?, phone = ? WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, user.getFirstName());
+            pstmt.setString(2, user.getLastName());
+            pstmt.setString(3, user.getEmail());
+            pstmt.setString(4, user.getPhone());
+            pstmt.setInt(5, user.getId());
+
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    // --- ProfileDAO Methods ---
+
+    public Profile getProfileByUserId(int userId) {
+        String sql = "SELECT * FROM profiles WHERE user_id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, userId);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return new Profile(
+                        rs.getInt("id"),
+                        rs.getInt("user_id"),
+                        rs.getString("bio"),
+                        rs.getString("specialties"),
+                        rs.getString("availability")
+                );
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+    public boolean saveOrUpdateProfile(Profile profile) {
+        String sql = profile.getId() == 0 ?
+                "INSERT INTO profiles (user_id, bio, specialties, availability) VALUES (?, ?, ?, ?)" :
+                "UPDATE profiles SET bio = ?, specialties = ?, availability = ? WHERE id = ?";
+        
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, profile.getUserId());
+            pstmt.setString(2, profile.getBio());
+            pstmt.setString(3, profile.getSpecialties());
+            pstmt.setString(4, profile.getAvailability());
+
+            if (profile.getId() != 0) {
+                pstmt.setInt(5, profile.getId());  // Update case
+            }
+
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    // --- AppointmentDAO Methods ---
+
+    public boolean bookAppointment(Appointment appointment) {
+        String sql = "INSERT INTO appointments (client_id, consultant_id, appointment_date, status) VALUES (?, ?, ?, ?)";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, appointment.getClientId());
+            pstmt.setInt(2, appointment.getConsultantId());
+            pstmt.setTimestamp(3, Timestamp.valueOf(appointment.getAppointmentDate()));
+            pstmt.setString(4, appointment.getStatus().toString());
+
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public List<Appointment> getAppointmentsForClient(int clientId) {
+        String sql = "SELECT * FROM appointments WHERE client_id = ?";
+        List<Appointment> appointments = new ArrayList<>();
+
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, clientId);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                Appointment appointment = new Appointment(
+                        rs.getInt("id"),
+                        rs.getInt("client_id"),
+                        rs.getInt("consultant_id"),
+                        rs.getTimestamp("appointment_date").toLocalDateTime(),
+                        Appointment.Status.valueOf(rs.getString("status"))
+                );
+                appointments.add(appointment);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return appointments;
+    }
+
+    public List<Appointment> getAppointmentsForConsultant(int consultantId) {
+        String sql = "SELECT * FROM appointments WHERE consultant_id = ?";
+        List<Appointment> appointments = new ArrayList<>();
+
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, consultantId);
+            ResultSet rs = pstmt.executeQuery();
+
+            while (rs.next()) {
+                Appointment appointment = new Appointment(
+                        rs.getInt("id"),
+                        rs.getInt("client_id"),
+                        rs.getInt("consultant_id"),
+                        rs.getTimestamp("appointment_date").toLocalDateTime(),
+                        Appointment.Status.valueOf(rs.getString("status"))
+                );
+                appointments.add(appointment);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return appointments;
+    }
+
+    public boolean updateAppointmentStatus(Appointment appointment) {
+        String sql = "UPDATE appointments SET status = ? WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, appointment.getStatus().toString());
+            pstmt.setInt(2, appointment.getId());
+
+            int rowsAffected = pstmt.executeUpdate();
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    // --- HealthResourceDAO Methods ---
+
+    public List<HealthResource> getAllResources() {
+        String sql = "SELECT * FROM health_resources";
+        List<HealthResource> resources = new ArrayList<>();
+
+        try (Connection conn = getConnection();
+             Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            while (rs.next()) {
+                HealthResource resource = new HealthResource(
+                        rs.getInt("id"),
+                        rs.getString("title"),
+                        rs.getString("description"),
+                        rs.getString("content"),
+                        HealthResource.ResourceType.valueOf(rs.getString("type"))
+                );
+                resources.add(resource);
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return resources;
+    }
+
+    public HealthResource getResourceById(int id) {
+        String sql = "SELECT * FROM health_resources WHERE id = ?";
+        try (Connection conn = getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setInt(1, id);
+            ResultSet rs = pstmt.executeQuery();
+
+            if (rs.next()) {
+                return new HealthResource(
+                        rs.getInt("id"),
+                        rs.getString("title"),
+                        rs.getString("description"),
+                        rs.getString("content"),
+                        HealthResource.ResourceType.valueOf(rs.getString("type"))
+                );
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+}

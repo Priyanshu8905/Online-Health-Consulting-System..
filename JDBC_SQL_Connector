@@ -1,0 +1,191 @@
+import java.sql.*;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+public class JDBC_HealthConsultingSystem {
+
+    private static final Logger LOGGER = Logger.getLogger(JDBC_HealthConsultingSystem.class.getName());
+    private static final String URL = "jdbc:mysql://localhost:3306/HealthConsultingSystem?useSSL=false";
+    private static final String USER = "root";
+    private static final String PASSWORD = "yourpassword"; // Update your DB password accordingly
+
+    private Connection connection;
+
+    // Constructor to initialize DB connection
+    public JDBC_HealthConsultingSystem() {
+        try {
+            connection = DriverManager.getConnection(URL, USER, PASSWORD);
+            System.out.println("Database connected successfully.");
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Database connection failed.", e);
+            System.exit(1);  // Exit program if connection fails
+        }
+    }
+
+    // Method to create tables
+    public void createTables() {
+        String createUsersTable = "CREATE TABLE IF NOT EXISTS users (" +
+                "user_id INT PRIMARY KEY AUTO_INCREMENT," +
+                "username VARCHAR(100) NOT NULL," +
+                "password VARCHAR(255) NOT NULL," +
+                "email VARCHAR(100) UNIQUE NOT NULL," +
+                "role ENUM('client', 'consultant', 'admin') NOT NULL," +
+                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                ");";
+
+        String createProfilesTable = "CREATE TABLE IF NOT EXISTS profiles (" +
+                "profile_id INT PRIMARY KEY AUTO_INCREMENT," +
+                "user_id INT," +
+                "first_name VARCHAR(100)," +
+                "last_name VARCHAR(100)," +
+                "phone VARCHAR(15)," +
+                "address TEXT," +
+                "specialty VARCHAR(255)," +
+                "availability VARCHAR(255)," +
+                "FOREIGN KEY (user_id) REFERENCES users(user_id)" +
+                ");";
+
+        String createAppointmentsTable = "CREATE TABLE IF NOT EXISTS appointments (" +
+                "appointment_id INT PRIMARY KEY AUTO_INCREMENT," +
+                "client_id INT," +
+                "consultant_id INT," +
+                "appointment_date DATETIME," +
+                "status ENUM('pending', 'confirmed', 'completed', 'cancelled') DEFAULT 'pending'," +
+                "FOREIGN KEY (client_id) REFERENCES users(user_id)," +
+                "FOREIGN KEY (consultant_id) REFERENCES users(user_id)" +
+                ");";
+
+        String createResourcesTable = "CREATE TABLE IF NOT EXISTS resources (" +
+                "resource_id INT PRIMARY KEY AUTO_INCREMENT," +
+                "title VARCHAR(255)," +
+                "type ENUM('article', 'video', 'document')," +
+                "content TEXT," +
+                "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP" +
+                ");";
+
+        try (PreparedStatement stmt1 = connection.prepareStatement(createUsersTable);
+             PreparedStatement stmt2 = connection.prepareStatement(createProfilesTable);
+             PreparedStatement stmt3 = connection.prepareStatement(createAppointmentsTable);
+             PreparedStatement stmt4 = connection.prepareStatement(createResourcesTable)) {
+
+            stmt1.executeUpdate();
+            stmt2.executeUpdate();
+            stmt3.executeUpdate();
+            stmt4.executeUpdate();
+
+            System.out.println("Tables created successfully.");
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Table creation failed.", e);
+        }
+    }
+
+    // Method to register a user (client, consultant, or admin)
+    public void registerUser(String username, String password, String email, String role) {
+        String insertUser = "INSERT INTO users (username, password, email, role) VALUES (?, ?, ?, ?)";
+        try (PreparedStatement stmt = connection.prepareStatement(insertUser)) {
+            stmt.setString(1, username);
+            stmt.setString(2, password); // Use hashed password here
+            stmt.setString(3, email);
+            stmt.setString(4, role);
+            stmt.executeUpdate();
+            System.out.println("User registered successfully.");
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error registering user.", e);
+        }
+    }
+
+    // Method to login a user
+    public boolean loginUser(String username, String password) {
+        String selectUser = "SELECT * FROM users WHERE username = ? AND password = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(selectUser)) {
+            stmt.setString(1, username);
+            stmt.setString(2, password);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                System.out.println("Login successful.");
+                return true;
+            } else {
+                System.out.println("Invalid credentials.");
+                return false;
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error during login.", e);
+            return false;
+        }
+    }
+
+    // Method to create or update a profile (client or consultant)
+    public void createOrUpdateProfile(int userId, String firstName, String lastName, String phone, String address, String specialty, String availability) {
+        String insertProfile = "INSERT INTO profiles (user_id, first_name, last_name, phone, address, specialty, availability) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE first_name = ?, last_name = ?, phone = ?, address = ?, specialty = ?, availability = ?";
+        try (PreparedStatement stmt = connection.prepareStatement(insertProfile)) {
+            stmt.setInt(1, userId);
+            stmt.setString(2, firstName);
+            stmt.setString(3, lastName);
+            stmt.setString(4, phone);
+            stmt.setString(5, address);
+            stmt.setString(6, specialty);
+            stmt.setString(7, availability);
+            stmt.setString(8, firstName);
+            stmt.setString(9, lastName);
+            stmt.setString(10, phone);
+            stmt.setString(11, address);
+            stmt.setString(12, specialty);
+            stmt.setString(13, availability);
+            stmt.executeUpdate();
+            System.out.println("Profile created/updated successfully.");
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error creating/updating profile.", e);
+        }
+    }
+
+    // Method to schedule an appointment
+    public void scheduleAppointment(int clientId, int consultantId, String dateTime) {
+        String insertAppointment = "INSERT INTO appointments (client_id, consultant_id, appointment_date) VALUES (?, ?, ?)";
+        try (PreparedStatement stmt = connection.prepareStatement(insertAppointment)) {
+            stmt.setInt(1, clientId);
+            stmt.setInt(2, consultantId);
+            stmt.setString(3, dateTime);
+            stmt.executeUpdate();
+            System.out.println("Appointment scheduled successfully.");
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error scheduling appointment.", e);
+        }
+    }
+
+    // Method to manage health resources (articles, videos)
+    public void addResource(String title, String type, String content) {
+        String insertResource = "INSERT INTO resources (title, type, content) VALUES (?, ?, ?)";
+        try (PreparedStatement stmt = connection.prepareStatement(insertResource)) {
+            stmt.setString(1, title);
+            stmt.setString(2, type);
+            stmt.setString(3, content);
+            stmt.executeUpdate();
+            System.out.println("Resource added successfully.");
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "Error adding resource.", e);
+        }
+    }
+
+    // Main method to run the program
+    public static void main(String[] args) {
+        JDBC_HealthConsultingSystem system = new JDBC_HealthConsultingSystem();
+        system.createTables();
+
+        // Example usage:
+        // 1. Register a user
+        system.registerUser("client1", "password123", "client1@example.com", "client");
+
+        // 2. Login a user
+        system.loginUser("client1", "password123");
+
+        // 3. Create or update a profile
+        system.createOrUpdateProfile(1, "John", "Doe", "123-456-7890", "123 Health St", null, null);
+
+        // 4. Schedule an appointment
+        system.scheduleAppointment(1, 2, "2024-11-15 10:00:00");
+
+        // 5. Add a health resource
+        system.addResource("How to stay healthy", "article", "Content of the health article goes here...");
+    }
+}

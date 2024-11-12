@@ -1,0 +1,51 @@
+CREATE DATABASE HealthConsultingSystem;
+
+USE HealthConsultingSystem;
+
+-- Table for Users (Clients, Consultants, Admins)
+CREATE TABLE Users (
+    user_id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    email VARCHAR(100) NOT NULL UNIQUE,
+    role ENUM('client', 'consultant', 'admin') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table for Profiles (for storing health information)
+CREATE TABLE Profiles (
+    profile_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    full_name VARCHAR(100) NOT NULL,
+    date_of_birth DATE,
+    health_conditions TEXT,
+    medical_history TEXT,
+    FOREIGN KEY (user_id) REFERENCES Users(user_id)
+);
+
+-- Table for Appointments
+CREATE TABLE Appointments (
+    appointment_id INT AUTO_INCREMENT PRIMARY KEY,
+    client_id INT NOT NULL,
+    consultant_id INT NOT NULL,
+    appointment_date TIMESTAMP NOT NULL,
+    status ENUM('booked', 'confirmed', 'completed', 'cancelled') DEFAULT 'booked',
+    FOREIGN KEY (client_id) REFERENCES Users(user_id),
+    FOREIGN KEY (consultant_id) REFERENCES Users(user_id)
+);
+
+-- Table for Health Resources (articles, videos, etc.)
+CREATE TABLE Resources (
+    resource_id INT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(100),
+    description TEXT,
+    content_url TEXT, -- Link to an article or video
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sample Admin and Consultant for testing
+INSERT INTO Users (username, password, email, role)
+VALUES ('admin', 'adminpassword', 'admin@health.com', 'admin');
+
+INSERT INTO Users (username, password, email, role)
+VALUES ('dr_smith', 'consultantpassword', 'dr_smith@health.com', 'consultant');
